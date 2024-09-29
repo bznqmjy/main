@@ -1,11 +1,8 @@
 /**
- * @name Suno-Stacks Wuno-West/Yuji Kuno-Jersey/free
- * @version UnoOnTop
- * @authorLink https://github.com/Suno-Stacks
+ * @name StereoSound
+ * @version 0.0.7
+ * @author A nigga wit a bowlcut
  */
-
-
-
 /*@cc_on
 @if (@_jscript)
 	
@@ -31,7 +28,7 @@
 @else@*/
 
 module.exports = (() => {
-    const config = {"main":"index.js","info":{"name":"UnoOnTop","authors":[{"name":"UnoOnTop","discord_id":"853835111497465886","github_username":"UnoOnTop"}],"authorLink":"https://github.com/Subscribe","version":"0.0.2","description":"UnoOnTop","github":"https://github.com/UnoOnTop","github_raw":"https://github.com/UnoOnTop"},"changelog":[{"title":"Changes","items":["Adjusted warning toast behavior"]}],"defaultConfig":[{"type":"switch","id":"enableToasts","name":"Enable Toasts","note":"Allows the plugin to let you know it is working, and also warn you about voice settings","value":true}]};
+    const config = {"main":"index.js","info":{"name":"StereoSound","authors":[{"name":"NiggaWitABowlCut","discord_id":"840347082430873611"}],"version":"0.0.7","description":"Adds stereo sound to your own microphone's output. Requires a capable stereo microphone."},"changelog":[{"title":"Changes","items":["Fixed"]}],"defaultConfig":[{"type":"switch","id":"enableToasts","name":"Enable Toasts","note":"Allows the plugin to warn you about voice settings","value":true}]};
 
     return !global.ZeresPluginLibrary ? class {
         constructor() {this._config = config;}
@@ -60,8 +57,28 @@ module.exports = (() => {
   return class StereoSound extends Plugin {
     onStart() {
       this.settingsWarning();
-      const voiceModule = WebpackModules.getByPrototypes("updateVideoQuality");
-      Patcher.after(voiceModule.prototype, "updateVideoQuality", this.replacement.bind(this));
+      const voiceModule = WebpackModules.getModule(BdApi.Webpack.Filters.byPrototypeFields("updateVideoQuality"));
+      BdApi.Patcher.after("StereoSound", voiceModule.prototype, "updateVideoQuality", (thisObj, _args, ret) => {
+	  if(thisObj){
+      const setTransportOptions = thisObj.conn.setTransportOptions;
+      thisObj.conn.setTransportOptions = function (obj) {
+        if (obj.audioEncoder) {
+          obj.audioEncoder.params = {
+            stereo: "2",
+          };
+          obj.audioEncoder.channels = 2;
+        }
+        if (obj.fec) {
+          obj.fec = false;
+        }
+        if (obj.encodingVoiceBitRate < 512000 ) { //128
+                obj.encodingVoiceBitRate = 512000
+        }
+        
+        setTransportOptions.call(thisObj, obj);
+      };
+      return ret;
+	  }});
     }
     settingsWarning() {
       const voiceSettingsStore = WebpackModules.getByProps("getEchoCancellation");
@@ -76,6 +93,7 @@ module.exports = (() => {
             { type: "warning", timeout: 5000 }
           );
         }
+        // This would not work, noise reduction would be stuck to on
         // const voiceSettings = WebpackModules.getByProps("setNoiseSuppression");
         // 2nd arg is for analytics
         // voiceSettings.setNoiseSuppression(false, {});
@@ -84,31 +102,7 @@ module.exports = (() => {
         return true;
       } else return false;
     }
-    replacement(thisObj, _args, ret) {
-      const setTransportOptions = thisObj.conn.setTransportOptions;
-      thisObj.conn.setTransportOptions = function (obj) {
-        if (obj.audioEncoder) {
-          obj.audioEncoder.params = {
-            stereo: "20",
-          };
-          obj.audioEncoder.channels = 2;
-        }
-        if (obj.fec) {
-          obj.fec = false;
-        }
-        if (obj.encodingVoiceBitRate < 6500*26 ) { //265
-                obj.encodingVoiceBitRate = 6500*26
-        }
-        
-        setTransportOptions.call(thisObj, obj);
-      };
-      if (!this.settingsWarning()) {
-        if (this.settings.enableToasts) {
-          Toasts.info("Join UnoOnTop");
-        }
-      }
-      return ret;
-    }
+	
     onStop() {
       Patcher.unpatchAll();
     }
